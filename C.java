@@ -21,6 +21,7 @@ public class C extends Canvas {
 	public void paint(Graphics g) {
 		super.paint(g);
 
+		// Initialize all pixels as blank
 		for (int x = 0; x < WIDTH; x++) {
 			for (int y = 0; y < HEIGHT; y++) {
 				values[x][y] = 0.0;
@@ -29,26 +30,33 @@ public class C extends Canvas {
 			}
 		}
 
+		// Store co-ordinates of last rain-drop and time since falling
 		int lastX = -1;
 		int lastY = -1;
 		int lastT = -1;
 		while (true) {
+			// ~20ms per step (i.e. 50/sec)
 			try {
 				Thread.sleep(20);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
+			// With some probability, add a rain-drop on a random location and initialize the timer
 			if (Math.random() < 1.0/INTERVAL) {
 				lastX = (int) (Math.random() * WIDTH);
 				lastY = (int) (Math.random() * HEIGHT);
 				lastT = 0;
 			}
+			// Currently, simulate water inflow at last location for three time-steps
+			// After, simply move drop off-canvas for simplicity
 			else if (lastT >= 3) {
 				lastX = -100;
 			}
 			lastT++;
-			
+
+			// Compute updated values at each point in time
 			double[][] newValues = computeNewValues(lastX, lastY);
+			// Draw new canvas
 			for (int x = 0; x < WIDTH; x++) {
 				for (int y = 0; y < HEIGHT; y++) {
 					g.setColor(color(values[x][y]));
@@ -59,19 +67,29 @@ public class C extends Canvas {
 		}
 	}
 
+	/*
+	 * Computes updated values given current state of canvas and last rain-drop
+	 */
 	private double[][] computeNewValues(int lastX, int lastY) {
 		double[][] newValues = new double[WIDTH][HEIGHT];
+		// For each pixel (somewhat inefficient, but fine for small canvas)
 		for (int i = 0; i < WIDTH; i++) {
 			for (int j = 0; j < HEIGHT; j++) {
 				double value = 0.0;
 				int count = 0;
+				// Compute distance to previous drop and if exist, simulate water inflow there
 				double dist = Math.sqrt(Math.pow(Math.abs(i - lastX), 2) + Math.pow(Math.abs(j - lastY), 2));
 				if (dist < RANGE) {
+					// Adjust new value by distance from drop ...
 					double newValue = 1.0;
 					while (dist-- > 0) newValue *= dissipation;
+					// ... but make sure not to "destroy" water that's already there
 					newValue = Math.max(newValue, values[i][j]);
+					// Update new value using inertia from old value
 					value = inertia * values[i][j] + (1 - inertia) * newValue;
-				} else {
+				}
+				// If not near new drop, simply simulate diffusion of water
+				else {
 					for (int x = i - 5; x <= i + 5; x++) {
 						for (int y = j - 5; y <= j + 5; y++) {
 							if (x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT)
@@ -82,6 +100,7 @@ public class C extends Canvas {
 					}
 					value /= count;
 				}
+				// Decay values to simulate water soaking into ground
 				newValues[i][j] = value * decay;
 			}
 		}
